@@ -64,7 +64,7 @@ Also note that the most external `with` corresponds to the latest piped `having`
 this is important if you need to have some values that depend on others.
 
 
-For more examples look at the documentation of [having.ex](tree/master/lib/having.ex)
+For more examples look at the documentation of [having.ex](https://github.com/vic/having/blob/master/lib/having.ex)
 
 ## Installation
 
