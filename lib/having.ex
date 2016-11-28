@@ -1,22 +1,17 @@
 defmodule Having do
 
   @moduledoc ~S"""
-  """
-
-  @doc ~S"""
       iex> import Having
       iex> having({a, b}, a: 1, b: 2)
       {1, 2}
-
 
       iex> import Having
       iex> {a, b} |> having(a: 1, b: 2)
       {1, 2}
 
-
       iex> import Having
       iex> a + b
-      ...> |> having(b: 3, a: b * b)
+      ...> |> having(a: b * b, b: 3)
       12
 
       iex> import Having
@@ -53,44 +48,74 @@ defmodule Having do
       ...> |> having(b = 10)
       {:error, 10}
 
-      iex> import Having
-      iex> {a, b}
-      ...> |> having(a when a > 10 <- b, {:error, b})
-      ...> |> having(b = 10)
-      {:error, 10}
-
   """
-  defmacro having(expr, options)
+
+  defmacro having(expr) do
+    having_fun(expr, [], [])
+  end
 
   defmacro having(expr, opts) do
-    opts = Keyword.keyword?(opts) && opts || [do: opts]
-    bindings = opts |> Keyword.drop([:do, :else]) |> kw_to_bindings
-    bindings =
-      Keyword.get(opts, :do)
-      |> case do
-        nil -> bindings
-        {:__block__, _, does} -> bindings ++ does
-        does -> bindings ++ List.wrap(does)
-      end
-    elses = Keyword.get(opts, :else)
-    {:with, [], bindings ++ [[do: expr]] ++ [elses && [else: elses] || []]}
+    having_piped(expr, opts)
   end
 
-  @doc false
-  defmacro having(expr, binding = {:<-, _, _}, else_expr) do
-    quote do
-      with(unquote(binding)) do
-        unquote(expr)
-      else
-        _ -> unquote(else_expr)
-      end
-    end
+  def having_pipe(a, b) do
+    having_fun({:|, [], [a, b]}, [], [])
   end
 
-  defp kw_to_bindings(kw) do
+  defp having_piped(expr, opts) do
+    opts = if Keyword.keyword?(opts) do opts else [do: opts] end
+    {binds, elses} = having_do_else(opts)
+    having_fun(expr, binds, elses)
+  end
+
+  defp having_fun(expr, binds, elses) do
+    {expr, binds, elses} = having_binds(expr, binds, elses)
+    binds = Enum.reverse(binds)
+    does  = [do: expr]
+    elses = if length(elses) > 0 do [else: elses] else [] end
+    {:with, [], binds ++ [does ++ elses]}
+  end
+
+  defp having_binds({x, _, [a, {:with, _, b}]}, binds, elses) when x == :|> or x == :| do
+    binds = (b ++ binds) |> Enum.reverse
+    {a, binds, elses}
+  end
+
+  defp having_binds({:having, _, [a, b]}, binds, elses) do
+    expr = having_piped(a, b)
+    {expr, binds, elses}
+  end
+
+  defp having_binds({:|, _, [a, b]}, binds, elses) do
+    {b_binding, binds, elses} = having_binds(b, binds, elses)
+    {a, [b_binding | binds], elses}
+  end
+
+  defp having_binds(x, binds, elses) do
+    {x, binds, elses}
+  end
+
+  defp having_block(opts, key) do
+    opts
+    |> Keyword.get(key)
+    |> case do
+         nil -> []
+         {:__block__, _, does} -> does
+         does -> List.wrap(does)
+       end
+  end
+
+  defp kw_to_binds(kw) do
     Enum.map kw, fn {key, value} ->
       {:=, [], [{key, [], nil}, value]}
     end
+  end
+
+  defp having_do_else(opts) do
+    does = having_block(opts, :do)
+    elses = having_block(opts, :else)
+    binds = opts |> Keyword.drop([:do, :else]) |> kw_to_binds
+    {binds ++ does, elses}
   end
 
 end
