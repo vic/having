@@ -1,4 +1,6 @@
 # Having
+[![help maintain this lib](https://img.shields.io/badge/looking%20for%20maintainer-DM%20%40vborja-663399.svg)](https://twitter.com/vborja)
+
 
 Haskell like `where` sugar for Elixir. A pipe-able `with` special form.
 
